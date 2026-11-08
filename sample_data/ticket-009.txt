@@ -1,0 +1,3 @@
+Subject: Dashboard loads very slowly
+
+The main dashboard takes more than a minute to open, while all other pages load normally. The problem appears in the chart with the monthly usage statistics. We use a standard corporate network, so the bottleneck is probably on the server side. Please profile the slow query.

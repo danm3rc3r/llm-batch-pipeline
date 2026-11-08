@@ -1,0 +1,3 @@
+Subject: Getting 429 errors from the public API
+
+Our integration started receiving HTTP 429 responses after about fifty requests per minute, even though our plan includes two hundred. The documentation mentions the higher limit as well. We would like the correct quota applied to our account or a clear explanation.

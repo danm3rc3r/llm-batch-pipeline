@@ -1,0 +1,3 @@
+Subject: Mobile app crashes when uploading a PDF attachment
+
+The Android app (version 3.2.1) closes immediately when I try to attach a PDF larger than one megabyte to a ticket. Smaller files work fine, and the web interface has no such problem. The issue happens on two different phones.

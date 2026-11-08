@@ -1,0 +1,3 @@
+Subject: Emails synced with a delay of several hours
+
+Since Monday, new emails appear in the dashboard only after four to six hours. Our mail server logs show no problem on our side, and other projects on the same server sync fine. Please investigate whether the sync worker is stuck or misconfigured.

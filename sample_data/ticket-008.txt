@@ -1,0 +1,3 @@
+Subject: Cannot invite a new teammate
+
+When I click the invite button in team settings, I get the message 'You are not allowed to perform this action'. I am the project owner, and the same feature worked before the last platform update. Please check the permissions for our workspace.

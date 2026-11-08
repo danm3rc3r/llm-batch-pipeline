@@ -1,0 +1,3 @@
+Subject: Duplicate notification emails
+
+Every status change on a ticket sends two identical emails to me and my colleagues. It started right after the platform migration in June; the second copy arrives a few seconds later. Could you find and remove the duplicated notification rule in our project settings?

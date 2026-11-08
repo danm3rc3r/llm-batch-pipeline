@@ -1,0 +1,3 @@
+Subject: Cannot log in after password reset
+
+Hi, I reset my password yesterday and now the login page says my email or password is incorrect. I tried three times on two different browsers and the error is the same. Please help me regain access to my account before Friday, it blocks the whole team.

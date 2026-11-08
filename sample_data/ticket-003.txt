@@ -1,0 +1,3 @@
+Subject: CSV export is missing columns
+
+When I export the customer list to CSV, the columns for phone and city are empty on every row, although the on-screen table shows the values. We rely on this export for our weekly mailing, so it is quite urgent. Could you check which fields are skipped?
