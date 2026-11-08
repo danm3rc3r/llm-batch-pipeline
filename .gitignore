@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Secrets (only OLLAMA_BASE_URL is expected; kept as a guard)
+.env
+
+# Run outputs
+data/
+results/
+.state.json
+*.log
+
+# IDE
+.idea/
+
+# SDD docs (working tree only; never committed)
+docs/

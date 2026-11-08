@@ -1,0 +1,5 @@
+[project]
+name = "llm-batch-pipeline"
+version = "0.1.0"
+description = "Batch-process a folder of text files with a local LLM (Ollama): chunking, YAML task configs, JSONL output, resume"
+requires-python = ">=3.11"
