@@ -12,12 +12,6 @@ PREFLIGHT_TIMEOUT_S = 5.0  # is_available / list_models
 RETRY_DELAYS_S = (1.0, 2.0)  # delays of retry 1 and 2 (D4)
 EXTENSIONS = (".txt", ".md")
 
-# Built-in task (stage S2 only; replaced by --tasks from stage S3 on)
-BUILTIN_SUMMARIZE_PROMPT = (
-    "Summarize the following text in 3 bullet points. "
-    "Return JSON: {\"summary\": string}\n{text}"
-)
-
 
 @dataclass(frozen=True)
 class TaskSpec:
@@ -26,13 +20,6 @@ class TaskSpec:
     name: str
     prompt: str  # template with the {text} placeholder
     output_fields: tuple[str, ...] = ()  # expected JSON keys (validation)
-
-
-BUILTIN_SUMMARIZE = TaskSpec(
-    name="summarize",
-    prompt=BUILTIN_SUMMARIZE_PROMPT,
-    output_fields=("summary",),
-)
 
 
 @dataclass(frozen=True)

@@ -1,0 +1,11 @@
+# Batch tasks. Each task: name, prompt template, expected output fields.
+# The {text} placeholder is replaced with the chunk text (str.replace, not format()).
+# JSON braces in prompts are fine.
+
+- name: summarize
+  prompt: "Summarize the following text in 3 bullet points. Return JSON: {\"summary\": string}\n{text}"
+  output_fields: [summary]
+
+- name: classify
+  prompt: "Classify the following support ticket. Return JSON: {\"category\": string, \"priority\": \"low\" | \"medium\" | \"high\"}\n{text}"
+  output_fields: [category, priority]

@@ -9,7 +9,6 @@ from pathlib import Path
 
 from .client import OllamaClient, OllamaUnavailable
 from .config import (
-    BUILTIN_SUMMARIZE,
     DEFAULT_BASE_URL,
     DEFAULT_CHUNK_OVERLAP,
     DEFAULT_CHUNK_SIZE,
@@ -17,6 +16,7 @@ from .config import (
     RunConfig,
 )
 from .runner import discover_files, run_batch
+from .tasks import TaskConfigError, load_tasks
 
 log = logging.getLogger("llm_pipeline")
 
@@ -32,8 +32,8 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
     run = subparsers.add_parser(
         "run",
-        help="Run the batch pipeline: --input DIR --out DIR [--model NAME] "
-             "[--chunk-size N] [--chunk-overlap N] [--verbose]",
+        help="Run the batch pipeline: --input DIR --out DIR --tasks FILE "
+             "[--model NAME] [--chunk-size N] [--chunk-overlap N] [--verbose]",
         description="Run the batch pipeline over a directory of .txt/.md files.",
     )
     run.add_argument(
@@ -41,6 +41,12 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         type=Path,
         help="Directory with .txt/.md files to process.",
+    )
+    run.add_argument(
+        "--tasks",
+        required=True,
+        type=Path,
+        help="YAML file with the tasks to run.",
     )
     run.add_argument(
         "--out",
@@ -85,9 +91,12 @@ def build_config(argv: list[str] | None = None) -> RunConfig:
         parser.error("--chunk-size must be >= 100")
     if not (0 <= args.chunk_overlap < args.chunk_size):
         parser.error("--chunk-overlap must be in [0, chunk-size)")
+    if not args.tasks.is_file():
+        parser.error(f"--tasks must be an existing file: {args.tasks}")
     base_url = os.environ.get("OLLAMA_BASE_URL", "").strip() or DEFAULT_BASE_URL
     return RunConfig(
         input_dir=args.input,
+        tasks_file=args.tasks,
         out_dir=args.out,
         model=args.model,
         chunk_size=args.chunk_size,
@@ -109,9 +118,14 @@ def configure_logging(cfg: RunConfig) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """CLI entry point (stage S2: built-in summarize task, no state/writer yet)."""
+    """CLI entry point (stage S3: tasks from --tasks YAML, no state/writer yet)."""
     cfg = build_config(argv)
     configure_logging(cfg)
+    try:
+        tasks = load_tasks(cfg.tasks_file)
+    except TaskConfigError as exc:
+        log.error("invalid tasks file: %s", exc)
+        return 2
     files = discover_files(cfg.input_dir)
     if not files:
         log.error("no .txt/.md files found in %s", cfg.input_dir)
@@ -125,7 +139,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     log.info("ollama ok: %s (model: %s)", cfg.base_url, cfg.model)
     try:
-        stats = run_batch(cfg, [BUILTIN_SUMMARIZE], files, client)
+        stats = run_batch(cfg, tasks, files, client)
     except OllamaUnavailable as exc:
         log.error("Ollama became unreachable: %s", exc)
         return 2

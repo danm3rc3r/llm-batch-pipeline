@@ -7,6 +7,7 @@ from pathlib import Path
 from .chunker import chunk_text
 from .client import OllamaBadOutput, OllamaClient, OllamaError, OllamaUnavailable
 from .config import EXTENSIONS, RETRY_DELAYS_S, RunConfig, RunStats, TaskSpec
+from .tasks import render_prompt
 
 log = logging.getLogger("llm_pipeline")
 
@@ -59,7 +60,7 @@ def process_chunk(
     stats: RunStats,
 ) -> None:
     """Call the model for one chunk with up to two retries on bad output (D4)."""
-    prompt = task.prompt.replace("{text}", chunk)  # inline for the built-in task (S2)
+    prompt = render_prompt(task, chunk)
     last_error = ""
     for attempt in range(1, 4):  # 1 + 2 retries (D4)
         t0 = time.monotonic()
