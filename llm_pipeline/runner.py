@@ -1,4 +1,4 @@
-"""Batch processing loop: files -> tasks -> chunks, with retry, state and stats."""
+"""Batch processing loop: files -> tasks -> chunks (retry, JSONL, state, stats)."""
 
 import hashlib
 import logging
@@ -8,7 +8,7 @@ from pathlib import Path
 from .chunker import chunk_text
 from .client import OllamaBadOutput, OllamaClient, OllamaError, OllamaUnavailable
 from .config import EXTENSIONS, RETRY_DELAYS_S, RunConfig, RunStats, TaskSpec
-from .output import StateStore
+from .output import JsonlWriter, StateStore
 from .tasks import render_prompt
 
 log = logging.getLogger("llm_pipeline")
@@ -24,13 +24,14 @@ def discover_files(input_dir: Path) -> list[Path]:
 def run_batch(
     cfg: RunConfig, tasks: list[TaskSpec], files: list[Path], client: OllamaClient
 ) -> RunStats:
-    """Process every file with every task, resuming from state.json (stage S4)."""
+    """Process every file with every task, writing JSONL records and resuming."""
     start = time.monotonic()
     stats = RunStats()
     meta = {"chunk_size": cfg.chunk_size, "chunk_overlap": cfg.chunk_overlap,
             "model": cfg.model, "tasks": sorted(t.name for t in tasks)}
     state = StateStore(cfg.out_dir / "state.json")
     state.load(meta)
+    writer = JsonlWriter(cfg.out_dir / "results.jsonl")
     try:
         for path in files:
             stats.files_total += 1
@@ -62,8 +63,9 @@ def run_batch(
                                  relpath, task.name, i + 1, len(chunks))
                         continue
                     process_chunk(cfg, task, chunk, relpath, digest, i, len(chunks),
-                                  client, state, stats)
+                                  client, state, writer, stats)
     finally:
+        writer.close()
         state.save()
     stats.elapsed_s = time.monotonic() - start
     if stats.files_total > 0 and stats.files_processed == 0:
@@ -82,10 +84,12 @@ def process_chunk(
     count: int,
     client: OllamaClient,
     state: StateStore,
+    writer: JsonlWriter,
     stats: RunStats,
 ) -> None:
     """Call the model for one chunk with up to two retries on bad output (D4)."""
     prompt = render_prompt(task, chunk)
+    t_start = time.monotonic()
     last_error = ""
     for attempt in range(1, 4):  # 1 + 2 retries (D4)
         t0 = time.monotonic()
@@ -106,11 +110,18 @@ def process_chunk(
         except OllamaUnavailable:
             raise  # connection-level: propagate to main (exit 2)
         except OllamaError as exc:  # 404/5xx - no retries (D4)
+            writer.write_error(relpath, digest, task.name, i, count, cfg.model,
+                               f"server error: {exc}",
+                               int((time.monotonic() - t_start) * 1000))
             stats.chunks_failed += 1
             log.error("failed: %s [%s chunk %d/%d]: %s", relpath, task.name, i + 1, count, exc)
             return
         else:
             elapsed = int((time.monotonic() - t0) * 1000)
+            writer.write_record(
+                relpath, digest, task.name, i, count, result.output, cfg.model,
+                elapsed, result.tokens_in, result.tokens_out,
+            )
             state.mark_chunk_done(relpath, digest, task.name, i)
             state.save()
             stats.chunks_ok += 1
@@ -119,5 +130,8 @@ def process_chunk(
             log.info("chunk %d/%d ok: %s (%d ms)", i + 1, count, task.name, elapsed)
             return
     # retries exhausted
+    writer.write_error(relpath, digest, task.name, i, count, cfg.model,
+                       f"invalid output after 3 attempts ({last_error})",
+                       int((time.monotonic() - t_start) * 1000))
     stats.chunks_failed += 1
     log.error("failed: %s [%s chunk %d/%d]: %s", relpath, task.name, i + 1, count, last_error)

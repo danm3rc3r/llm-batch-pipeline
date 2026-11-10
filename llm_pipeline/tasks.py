@@ -22,7 +22,7 @@ def load_tasks(path: Path) -> list[TaskSpec]:
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as exc:
-        raise TaskConfigError("cannot read %s: %s" % (path.name, exc)) from exc
+        raise TaskConfigError(f"cannot read {path.name}: {exc}") from exc
     if not isinstance(data, list) or not data:
         raise TaskConfigError("tasks file must be a non-empty list")
     tasks: list[TaskSpec] = []
@@ -35,12 +35,12 @@ def load_tasks(path: Path) -> list[TaskSpec]:
             raise TaskConfigError("task 'name' must be a non-empty string")
         prompt = item.get("prompt")
         if not isinstance(prompt, str) or not prompt:
-            raise TaskConfigError("task '%s': 'prompt' must be a non-empty string" % name)
+            raise TaskConfigError(f"task '{name}': 'prompt' must be a non-empty string")
         if name in seen:
-            raise TaskConfigError("duplicate task name: %s" % name)
+            raise TaskConfigError(f"duplicate task name: {name}")
         if "{text}" not in prompt:
             raise TaskConfigError(
-                "task '%s': prompt must contain the {text} placeholder" % name
+                f"task '{name}': prompt must contain the {{text}} placeholder"
             )
         fields = item.get("output_fields")
         if fields is None:
@@ -49,10 +49,10 @@ def load_tasks(path: Path) -> list[TaskSpec]:
             isinstance(field, str) and field for field in fields
         ):
             raise TaskConfigError(
-                "task '%s': 'output_fields' must be a list of non-empty strings" % name
+                f"task '{name}': 'output_fields' must be a list of non-empty strings"
             )
         if len(set(fields)) != len(fields):
-            raise TaskConfigError("task '%s': duplicate entry in 'output_fields'" % name)
+            raise TaskConfigError(f"task '{name}': duplicate entry in 'output_fields'")
         seen.add(name)
         tasks.append(TaskSpec(name=name, prompt=prompt, output_fields=tuple(fields)))
     return tasks

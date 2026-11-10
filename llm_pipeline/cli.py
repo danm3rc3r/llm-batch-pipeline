@@ -6,6 +6,7 @@ import logging
 import os
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 from .client import OllamaClient, OllamaUnavailable
 from .config import (
@@ -13,6 +14,7 @@ from .config import (
     DEFAULT_CHUNK_OVERLAP,
     DEFAULT_CHUNK_SIZE,
     DEFAULT_MODEL,
+    DEFAULT_TIMEOUT_S,
     RunConfig,
 )
 from .runner import discover_files, run_batch
@@ -33,7 +35,8 @@ def build_parser() -> argparse.ArgumentParser:
     run = subparsers.add_parser(
         "run",
         help="Run the batch pipeline: --input DIR --out DIR --tasks FILE "
-             "[--model NAME] [--chunk-size N] [--chunk-overlap N] [--verbose]",
+             "[--model NAME] [--chunk-size N] [--chunk-overlap N] "
+             "[--base-url URL] [--timeout SECS] [--verbose]",
         description="Run the batch pipeline over a directory of .txt/.md files.",
     )
     run.add_argument(
@@ -72,6 +75,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Overlap between consecutive chunks in characters (default: %(default)s).",
     )
     run.add_argument(
+        "--base-url",
+        default=None,
+        help="Ollama base URL (default: env OLLAMA_BASE_URL or http://localhost:11434).",
+    )
+    run.add_argument(
+        "--timeout",
+        type=float,
+        default=DEFAULT_TIMEOUT_S,
+        help="Timeout in seconds for one generate() call (default: %(default)s).",
+    )
+    run.add_argument(
         "--verbose",
         action="store_true",
         help="Enable debug logging.",
@@ -93,7 +107,13 @@ def build_config(argv: list[str] | None = None) -> RunConfig:
         parser.error("--chunk-overlap must be in [0, chunk-size)")
     if not args.tasks.is_file():
         parser.error(f"--tasks must be an existing file: {args.tasks}")
-    base_url = os.environ.get("OLLAMA_BASE_URL", "").strip() or DEFAULT_BASE_URL
+    if args.timeout < 1:
+        parser.error("--timeout must be >= 1")
+    env_url = os.environ.get("OLLAMA_BASE_URL", "").strip()
+    base_url = (args.base_url or env_url).strip() or DEFAULT_BASE_URL
+    parts = urlparse(base_url)
+    if parts.scheme not in ("http", "https") or not parts.netloc:
+        parser.error("--base-url must be an http(s) URL with a host")
     return RunConfig(
         input_dir=args.input,
         tasks_file=args.tasks,
@@ -102,6 +122,7 @@ def build_config(argv: list[str] | None = None) -> RunConfig:
         chunk_size=args.chunk_size,
         chunk_overlap=args.chunk_overlap,
         base_url=base_url,
+        timeout_s=args.timeout,
         verbose=args.verbose,
     )
 
@@ -118,7 +139,7 @@ def configure_logging(cfg: RunConfig) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """CLI entry point (stage S3: tasks from --tasks YAML, no state/writer yet)."""
+    """CLI entry point (final form, 04b section 4.1)."""
     cfg = build_config(argv)
     configure_logging(cfg)
     try:
@@ -141,8 +162,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         stats = run_batch(cfg, tasks, files, client)
     except OllamaUnavailable as exc:
-        log.error("Ollama became unreachable: %s", exc)
+        log.error("Ollama became unreachable: %s (progress saved; re-run to resume)", exc)
         return 2
+    except KeyboardInterrupt:
+        log.warning("interrupted by user (progress saved; re-run to resume)")
+        return 130
     finally:
         client.close()
     print(json.dumps(stats.as_dict()), file=sys.stderr)
