@@ -106,8 +106,8 @@ one record per chunk.
 
 ## Real run
 
-10 documents, 2 tasks — 20 LLM calls in **TBD** minutes on **TBD** (model: `llama3:8b`,
-**TBD** output tokens/sec). $0 API cost.
+10 documents, 2 tasks — 20 LLM calls in 6.7 minutes on an RTX 4090 Laptop (16 GB VRAM),
+model `qwen3:4b-rsv` (~145 output tokens/sec). $0 API cost.
 
 ## Limitations
 
